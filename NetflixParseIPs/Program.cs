@@ -1,12 +1,54 @@
 ﻿using HtmlAgilityPack;
+using System.Net;
+using System.Text;
 
 namespace NetflixParseIPs
 {
-    partial class Program
+    class Program
     {
         static void Main(string[] args)
         {
-            Dictionary<string, string> Legend = new()
+            IPParser parser = new();
+            StringBuilder result = new();
+            HtmlWeb web = new()
+            {
+                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+            };
+
+            HtmlDocument doc = web.Load("https://ipinfo.io/AS2906");
+
+            HtmlNode table = doc.DocumentNode.SelectSingleNode("//div[@id='ipv4-data']/table");
+            HtmlNodeCollection rows = table.SelectNodes("tbody/tr");
+
+            foreach (HtmlNode row in rows)
+            {
+                string netblock = row.SelectSingleNode("td[1]/a").InnerText.Trim();
+                string company = row.SelectSingleNode("td[2]/span").InnerText.Trim();
+
+                result.AppendLine(parser.ParseIP(netblock, "COMPANY : " + company));
+            }
+
+            string remoteAddress = parser.GetRemoteAddress("https://www.netflix.com/msl/playapi/cadmium/event/1?");
+
+            doc = web.Load($"https://ipinfo.io/{remoteAddress}");
+
+            HtmlNode ipRangeNode = doc.DocumentNode.SelectSingleNode("//tr[3]/td[2]//a");
+            
+            result.AppendLine(parser.ParseIP(ipRangeNode.InnerHtml, "Netflix Watch History API - Caution!!! AWS IP address ranges"));
+
+            Console.WriteLine(result);
+
+            File.WriteAllText("result.txt", result.ToString());
+        }
+    }
+
+    public class IPParser
+    {
+        private readonly Dictionary<string, string> _prefixToNetmask;
+
+        public IPParser()
+        {
+            _prefixToNetmask = new Dictionary<string, string>()
             {
                 ["/30"] = "255.255.255.252",
                 ["/29"] = "255.255.255.248",
@@ -32,44 +74,20 @@ namespace NetflixParseIPs
                 ["/9"] = "255.128.0.0",
                 ["/8"] = "255.0.0.0"
             };
-
-            HtmlWeb web = new()
-            {
-                UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
-            };
-
-            HtmlDocument doc = web.Load("https://ipinfo.io/AS2906");
-
-            string result = "";
-
-            HtmlNode table = doc.DocumentNode.SelectSingleNode("//div[@id='ipv4-data']/table");
-            HtmlNodeCollection rows = table.SelectNodes("tbody/tr");
-
-            foreach (HtmlNode row in rows)
-            {
-                string netblock = row.SelectSingleNode("td[1]/a").InnerText.Trim();
-                string company = row.SelectSingleNode("td[2]/span").InnerText.Trim();
-                string numOfIPs = row.SelectSingleNode("td[3]").InnerText.Trim();
-
-                //Console.WriteLine("Netblock: " + netblock);
-                //Console.WriteLine("Company: " + company);
-                //Console.WriteLine("Num of IPs: " + numOfIPs);
-                //Console.WriteLine("--------------------");
-
-                result += ParseIP(netblock, company, numOfIPs, Legend) + Environment.NewLine;
-            }
-
-            Console.WriteLine(result);
-
-            File.WriteAllText("result.txt", result);
         }
 
-        static string ParseIP(string ipAddress, string company, string numOfIPs, Dictionary<string, string> Legend)
+        public string ParseIP(string ipAddress, string annotate)
         {
             string prefix = ipAddress.Split('/')[1];
-            string netmask = Legend[$"/{prefix}"];
+            string netmask = _prefixToNetmask[$"/{prefix}"];
 
-            return $"route {ipAddress.Split('/')[0]} {netmask} # COMPANY : {company} / NUM OF IPS : {numOfIPs}";
+            return $"route {ipAddress.Split('/')[0]} {netmask} # {annotate}";
+        }
+
+        public string GetRemoteAddress(string url)
+        {
+            Uri myUri = new Uri(url);
+            return Dns.GetHostAddresses(myUri.Host)[0].ToString();
         }
     }
 }

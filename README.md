@@ -8,10 +8,15 @@ OpenVPN Netflix Routing 설정에 필요한 IP 파싱 프로그램입니다.
 NetflixParseIPs 프로그램 실행하시면 자동으로 IP 추출 후 result.txt 파일이 생성됩니다.  
 OpenVPN 클라이언트 설정 파일에 추가하시고 사용하시면 됩니다.  
 자세한 사용 방법은 OpenVPN 사이트를 참조하시기를 바랍니다.  
+  
+계정 설정 - [액세스 및 디바이스 관리](https://www.netflix.com/manageaccountaccess/)에서 각 디바이스에 시청 기록과 IP주소 값을 확인하시면 됩니다.
 
 ## IP 값은 어디서 가져오나요?
 IPinfo.io 사이트에서 가져옵니다.  
-https://ipinfo.io/AS2906
+https://ipinfo.io/AS2906  
+
+시청 기록 API 서버에 원격 주소 값을 가져옵니다. (AWS IP)  
+https://www.netflix.com/msl/playapi/cadmium/event/1?
 
 ## 참조 사이트
 airvpn.org zqwvyx님 - 올려주신 코드 참조하여 작업하였습니다.  
@@ -25,7 +30,8 @@ https://google.com
 
 ## 주의!!!
 프로그램 사용으로 인한 발생하는 문제에 대한 모든 책임은 사용자에게 있습니다.  
-API 이용이 아닌 HtmlAgilityPack 사용으로 가져오므로 IP 차단 가능성이 있으니 주의 부탁드립니다.
+https://ipinfo.io 파싱 과정에서 API 이용이 아닌 HtmlAgilityPack 방식이므로 IP 차단 가능성이 있으니 주의 부탁드립니다.  
+일부 IP주소는 AWS 범위이므로 클라이언트에 일부 영향을 줄 수 있습니다.
 
 ## LICENSE
 MIT License  
