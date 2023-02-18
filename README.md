@@ -14,13 +14,27 @@ OpenVPN 클라이언트 설정 파일에 추가하시고 사용하시면 됩니�
 ## IP 값은 어디서 가져오나요?
 IPinfo.io 사이트에서 가져옵니다.  
 https://ipinfo.io/AS2906  
-
-시청 기록 API 서버에 원격 주소 값을 가져옵니다. (AWS IP)  
-https://www.netflix.com/msl/playapi/cadmium/event/1?
+https://ipinfo.io/AS40027  
+https://ipinfo.io/AS55095  
+https://ipinfo.io/AS394406  
+  
+AWS Public IP Address Ranges json에서 아래 조건에 맞춰 가져옵니다.  
+https://ip-ranges.amazonaws.com/ip-ranges.json  
+```
+{
+  "ip_prefix": "*.*.*.*/*",
+  "region": "us-west-2",
+  "service": "EC2",
+  "network_border_group": "us-west-2"
+},
+```
 
 ## 참조 사이트
 airvpn.org zqwvyx님 - 올려주신 코드 참조하여 작업하였습니다.  
 https://airvpn.org/forums/topic/19781-bypass-vpn-for-specific-domain-names-netflix-hulu-via-custom-configuration-in-openvpn-tomato-dd-wrtrouter/?tab=comments#comment-71268  
+  
+Netflix 및 AWS IP 정보  
+https://gist.github.com/frk1/8fb578b36bd9a36a48109f412c844a1f  
   
 ChatGPT - C# 코드 변환 및 일부 코드는 ChatGPT 이용하여 작성했습니다.  
 https://openai.com/  
@@ -30,7 +44,7 @@ https://google.com
 
 ## 주의!!!
 프로그램 사용으로 인한 발생하는 문제에 대한 모든 책임은 사용자에게 있습니다.  
-https://ipinfo.io 파싱 과정에서 API 이용이 아닌 HtmlAgilityPack 방식이므로 IP 차단 가능성이 있으니 주의 부탁드립니다.  
+https://ipinfo.io 파싱 과정에서 API 이용이 아닌 HtmlAgilityPack 방식이므로 IP 차단 가능성이 있습니다.  
 일부 IP주소는 AWS 범위이므로 클라이언트에 일부 영향을 줄 수 있습니다.
 
 ## LICENSE

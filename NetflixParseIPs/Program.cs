@@ -1,6 +1,8 @@
 ﻿using HtmlAgilityPack;
+using System;
 using System.Net;
 using System.Text;
+using System.Text.Json;
 
 namespace NetflixParseIPs
 {
@@ -10,33 +12,60 @@ namespace NetflixParseIPs
         {
             IPParser parser = new();
             StringBuilder result = new();
+            HtmlDocument doc;
             HtmlWeb web = new()
             {
                 UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
             };
 
-            HtmlDocument doc = web.Load("https://ipinfo.io/AS2906");
+            string[] networks = { "AS2906", "AS40027", "AS55095", "AS394406" };
 
-            HtmlNode table = doc.DocumentNode.SelectSingleNode("//div[@id='ipv4-data']/table");
-            HtmlNodeCollection rows = table.SelectNodes("tbody/tr");
-
-            foreach (HtmlNode row in rows)
+            foreach (string network in networks)
             {
-                string netblock = row.SelectSingleNode("td[1]/a").InnerText.Trim();
-                string company = row.SelectSingleNode("td[2]/span").InnerText.Trim();
+                result.AppendLine($"# Netflix : https://ipinfo.io/{network}");
 
-                result.AppendLine(parser.ParseIP(netblock, "COMPANY : " + company));
+                doc = web.Load($"https://ipinfo.io/{network}");
+
+                HtmlNode table = doc.DocumentNode.SelectSingleNode("//div[@id='ipv4-data']/table");
+
+                foreach (HtmlNode row in table.SelectNodes("tbody/tr"))
+                {
+                    string netblock = row.SelectSingleNode("td[1]/a").InnerText.Trim();
+                    string company = row.SelectSingleNode("td[2]/span").InnerText.Trim();
+
+                    result.AppendLine(parser.ParseIP(netblock, "COMPANY : " + company));
+                }
             }
 
-            string remoteAddress = parser.GetRemoteAddress("https://www.netflix.com/msl/playapi/cadmium/event/1?");
+            result.AppendLine($"# AWS (us-west-2) EC2 : https://ip-ranges.amazonaws.com/ip-ranges.json");
 
-            doc = web.Load($"https://ipinfo.io/{remoteAddress}");
+            using (HttpClient client = new())
+            {
+                List<string> ipPrefixes = new();
 
-            HtmlNode ipRangeNode = doc.DocumentNode.SelectSingleNode("//tr[3]/td[2]//a");
-            
-            result.AppendLine(parser.ParseIP(ipRangeNode.InnerHtml, "Netflix Watch History API - Caution!!! AWS IP address ranges"));
+                string awsRangesJson = client.GetStringAsync("https://ip-ranges.amazonaws.com/ip-ranges.json").Result;
+                JsonElement jsonData = JsonSerializer.Deserialize<JsonElement>(awsRangesJson);
 
-            Console.WriteLine(result);
+                foreach (JsonElement item in jsonData.GetProperty("prefixes").EnumerateArray())
+                {
+                    if (item.GetProperty("network_border_group").GetString() == "us-west-2" && item.GetProperty("service").GetString() == "EC2")
+                    {
+                        string? ipAddress = item.GetProperty("ip_prefix").GetString();
+
+                        if (!string.IsNullOrWhiteSpace(ipAddress))
+                        {
+                            ipPrefixes.Add(parser.ParseIP(ipAddress, "COMPANY : AWS"));
+                        }
+                    }
+                }
+
+                ipPrefixes.Sort(parser.CompareIPAddresses);
+
+                foreach (string ipPrefix in ipPrefixes)
+                {
+                    result.AppendLine(ipPrefix);
+                }
+            }
 
             File.WriteAllText("result.txt", result.ToString());
         }
@@ -50,6 +79,8 @@ namespace NetflixParseIPs
         {
             _prefixToNetmask = new Dictionary<string, string>()
             {
+                ["/32"] = "255.255.255.255",
+                ["/31"] = "255.255.255.254",
                 ["/30"] = "255.255.255.252",
                 ["/29"] = "255.255.255.248",
                 ["/28"] = "255.255.255.240",
@@ -84,10 +115,26 @@ namespace NetflixParseIPs
             return $"route {ipAddress.Split('/')[0]} {netmask} # {annotate}";
         }
 
-        public string GetRemoteAddress(string url)
+        public int CompareIPAddresses(string a, string b)
         {
-            Uri myUri = new Uri(url);
-            return Dns.GetHostAddresses(myUri.Host)[0].ToString();
+            string[] aComponents = a.Split(' ');
+            string[] bComponents = b.Split(' ');
+
+            string[] aIpComponents = aComponents[1].Split('.');
+            string[] bIpComponents = bComponents[1].Split('.');
+
+            for (int i = 0; i < 4; i++)
+            {
+                int aComponent = int.Parse(aIpComponents[i]);
+                int bComponent = int.Parse(bIpComponents[i]);
+
+                if (aComponent != bComponent)
+                {
+                    return aComponent.CompareTo(bComponent);
+                }
+            }
+
+            return 0;
         }
     }
 }
